@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+contract Election{
+
+    struct voter{
+        string name;
+        uint id;
+        address voter_address;
+        bool eligibility;
+    }
+    struct Candidate{
+        string name;
+        uint votes;
+    }
+
+    mapping(uint=>Candidate) candidates; //mapping candidates by their ids
+
+    address election_officer;
+    uint total_number_of_candidates;
+    
+    constructor(string[] memory candidate_names){ // All candidates must be given as input by the contract caller(election officer)
+        
+        election_officer = msg.sender; //Since election_officer will be the one to call the election
+        total_number_of_candidates = candidate_names.length;
+
+        for(uint i=0; i<candidate_names.length;i++){
+            candidates[i+1]=Candidate({ // In case of same name id(i.e, i+1) will take care of uniqness;
+                name: candidate_names[i],
+                votes: 0 // Initially all candidates have 0 votes
+            });
+        }
+    }
+
+    mapping(address=>voter) public voters;
+
+    modifier voterID_registration_check{
+        require(voters[msg.sender].id == 0, "Voter id has been already registered");
+        _;
+    }
+
+    function voterID_registration(string memory voter_name) public voterID_registration_check{
+        voters[msg.sender] = voter({
+            name: voter_name,
+            id: 1,
+            voter_address: msg.sender,
+            eligibility: true
+        });
+    } 
+    
+    event vote_casted(string name, uint id, string message);
+
+    modifier voter_verification{
+        require(voters[msg.sender].id != 0, "Your voter id has not been registered!");
+        require(voters[msg.sender].eligibility, "You already casted your vote!!");
+        _;
+    }
+
+    function cast_vote(uint candidate_id) public voter_verification{
+        candidates[candidate_id].votes += 1;
+        emit vote_casted(candidates[candidate_id].name,candidate_id, "You successfully casted your vote!!");
+    }
+
+    Candidate[] winning_candidates;
+
+    function vote_counting() private{
+        uint max_votes = 0;
+        for(uint i=1; i<=total_number_of_candidates; i++){
+            if(candidates[i].votes>max_votes){
+                if(winning_candidates.length !=0) winning_candidates.pop();
+                winning_candidates.push(candidates[i]);
+            }
+            else if(candidates[i].votes == max_votes) winning_candidates.push(candidates[i]);
+        }
+    }
+}
